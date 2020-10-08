@@ -1,0 +1,151 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(Rmisc)
+library(lubridate)
+library(ggplot2)
+library(car)
+library(MASS)
+library(mgcv)
+library(MuMIn)
+library(emmeans)
+library(wesanderson)
+library(effects)
+```
+
+```{r}
+allinteractions <- read.csv("/Users/imkri/Desktop/PhD/Seasonal Monitoring Experiment/ALL coral-algal interactions.csv", strip.white=T)
+head(allinteractions)
+```
+```{r}
+binomial<- read.csv("/Users/imkri/Desktop/PhD/Seasonal Monitoring Experiment/Binomial subset colony size.csv", strip.white=T)
+head(binomial)
+```
+```{r}
+unique(binomial$Length.of.edge.in.contact)
+```
+```{r}
+binomial<-binomial%>%
+  mutate(Edgegroup= ifelse (Length.of.edge.in.contact <=0.05, "<0.05",
+                           ifelse(Length.of.edge.in.contact >0.05 & Length.of.edge.in.contact <=0.10,"0.05- 0.10",
+                          ifelse(Length.of.edge.in.contact >0.10 & Length.of.edge.in.contact <=0.20,"0.10-0.20",
+                                 ifelse(Length.of.edge.in.contact >0.20 & Length.of.edge.in.contact <=0.40,"0.20-0.40",
+                                        ifelse(Length.of.edge.in.contact >0.40 & Length.of.edge.in.contact <=0.80,"0.40-0.80",
+                                               ifelse(Length.of.edge.in.contact >0.80, ">0.80",Length.of.edge.in.contact)))))))
+binomial
+```
+```{r}
+binomial<-binomial%>%
+  mutate(Coral.Group= ifelse (Coral %in% c("Acropora"), "Acropora",
+                        ifelse(Coral %in% c("Seriatopora","Stylophora", "Pocillopora","Isopora","Porites (branching)", "Galaxea (branching)"), "bushy",
+                               ifelse(Coral %in% c("Montipora","Merulina","Echinophyllia","Echinopora","Mycedium","Porites (plating)"), "plating",
+                                      ifelse(Coral %in% c("Favites","Platygyra","Porites (massive)","Lobophyllia","Galaxea","Acanthastrea", "Asteropora", "Symphyllia","Hydnophora","Favia", "Montastrea", "Goniopora", "Cyphastrea", "Goniastrea"), "massive",
+                                             ifelse(Coral %in% c("Coscinaraea","Psammocora","Porites (encrusting)"), "encrusting", NA))))))
+binomial
+```
+
+```{r}
+binomial<-binomial%>%
+  mutate(Group= ifelse (Algae %in% c("filamentous"), "filamentous",
+                        ifelse(Algae %in% c("cyanobacteria"), "cyano",
+                               ifelse(Algae %in% c("Turbinaria ornata","Hydroclathrus clathratus", "Colpomenia","Chnoospora implexa","Codium","Sargassum","Caulerpa","Valonia","Dictyosphaeria","Avrainvillea","Peyssonnelia"), "overgrowth",
+                               ifelse(Algae %in% c("CCA"), "CCA",
+                                      ifelse(Algae %in% c("ACA"), "ACA",
+                                             ifelse(Algae %in% c("Halimeda"), "Halimeda",
+                                                    ifelse(Algae %in% c("Chlorodesmis fastigiata","Dictyota", "Lobophora","Laurencia intricata","Padina","Plocamium","Hypnea","Asparagopsis taxiformis", "Amansia glomerata"), "allelopathic", NA))))))))
+
+head(binomial)
+```
+
+```{r}
+allinteractions<-allinteractions%>%
+  mutate(Maxgroup= ifelse (Maximum.colony.diameter <=0.05, "<0.05",
+                           ifelse(Maximum.colony.diameter >0.05 & Maximum.colony.diameter <=0.10,"0.05- 0.10",
+                          ifelse(Maximum.colony.diameter >0.10 & Maximum.colony.diameter <=0.20,"0.10-0.20",
+                                 ifelse(Maximum.colony.diameter >0.20 & Maximum.colony.diameter <=0.40,"0.20-0.40",
+                                        ifelse(Maximum.colony.diameter >0.40 & Maximum.colony.diameter <=0.80,"0.40-0.80",
+                                               ifelse(Maximum.colony.diameter >0.80, ">0.80",Maximum.colony.diameter)))))))
+allinteractions
+```
+
+```{r}
+binomial<-binomial%>%
+  mutate(Maxgroup= ifelse (Maximum.colony.diameter <=0.05, "<0.05",
+                           ifelse(Maximum.colony.diameter >0.05 & Maximum.colony.diameter <=0.10,"0.05- 0.10",
+                          ifelse(Maximum.colony.diameter >0.10 & Maximum.colony.diameter <=0.20,"0.10-0.20",
+                                 ifelse(Maximum.colony.diameter >0.20 & Maximum.colony.diameter <=0.40,"0.20-0.40",
+                                        ifelse(Maximum.colony.diameter >0.40 & Maximum.colony.diameter <=0.80,"0.40-0.80",
+                                               ifelse(Maximum.colony.diameter >0.80, ">0.80",Maximum.colony.diameter)))))))
+binomial
+```
+
+
+```{r}
+unique(binomial$Coral.Group)
+```
+#Algal group and season only
+```{r}
+outcome.glmer<- glmer(Outcome~Season*Group+(1|Site), data=binomial,  na.action = na.exclude, family='binomial')
+outcome.glmer1<- glmer(Outcome~Season+(1|Site), data=binomial,  na.action = na.exclude, family='binomial')
+outcome.glmer2<- glmer(Outcome~Group+(1|Site), data=binomial,  na.action = na.exclude, family='binomial')
+outcome.glmer3<- glmer(Outcome~Season+Group+(1|Site), data=binomial,  na.action = na.exclude, family='binomial')
+```
+```{r}
+library(MuMIn)
+AICc(outcome.glmer,
+     outcome.glmer1,
+     outcome.glmer2,
+     outcome.glmer3)
+```
+```{r}
+round(Weights(AICc(outcome.glmer,
+     outcome.glmer1,
+     outcome.glmer2,
+     outcome.glmer3)),3)
+```
+```{r}
+Anova(outcome.glmer, type=3)
+#plot(allEffects(trans.glmer,partial.resid=TRUE))
+tukey<- emmeans(outcome.glmer, list(pairwise ~ Season*Group), adjust = "tukey")
+tukey
+```
+
+```{r}
+outmacro4 <- read.csv("/Users/imkri/Desktop/PhD/Competitive Ability/03.05.2018_ Macroalgal outcomes with zone.csv", strip.white=T)
+outmacro4
+```
+
+```{r}
+algaegroupsum <- summarySE(outmacro4, measurevar="Proportion.Losing", groupvars=c("Macroalgae.Type", "Season"), na.rm=TRUE)
+algaegroupsum
+```
+
+```{r}
+# manually ordering the factor levels
+algaegroupsum$Macroalgae.Type <- factor(algaegroupsum$Macroalgae.Type, levels=c("cyanobacteria","filamentous","allelopathic","overgrowth","ACA","Halimeda","CCA"))
+pd <- position_dodge(1)
+library(ggplot2)
+outcomes<-ggplot(algaegroupsum, aes(y=Proportion.Losing, x=Season, color=Season))+ 
+  geom_errorbar(aes(ymin=Proportion.Losing-se, ymax=Proportion.Losing+se), width= 0.5, position=pd) +
+  geom_point(position=pd)+
+  facet_grid(~Macroalgae.Type)+
+  scale_color_manual(values = wes_palette(n=4, name="Moonrise2")) + 
+  scale_y_continuous(expression(Proportion~of~coral~colonies~losing))+
+  geom_hline(yintercept = .50, linetype="dotted", color = 'black', size=1, show.legend = TRUE)+
+  theme_classic()+
+    theme(axis.text.x=element_text(angle=45,hjust=1, size=12), 
+        panel.background= element_rect(fill=NA, color='black'),
+        legend.background = element_rect(fill=NA,size=0.5, linetype="solid", colour ="black"),
+        axis.text.y = element_text(vjust=0.5, size=12), 
+        axis.title.x = element_text(vjust=0.5, size=12),
+        axis.title.y = element_text(vjust=0.5, size=12),
+        legend.title = element_text(size=12),
+        legend.title.align=0.5,
+        legend.text = element_text(vjust=0.5, size=10))
+outcomes
+```
